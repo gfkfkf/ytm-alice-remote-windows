@@ -27,7 +27,7 @@
 ## Установка (готовый exe)
 
 Скачайте `ytm-alice-remote-windows.exe` из релиза:
-https://github.com/gfkfkf/ytm-alice-remote/releases/tag/v1.0.0
+https://github.com/gfkfkf/ytm-alice-remote-windows/releases/tag/v1.0.0
 
 Запустите файл (SmartScreen может предупредить — «Подробнее → Выполнить
 всё равно», так как exe не подписан сертификатом).
@@ -40,12 +40,11 @@ https://github.com/gfkfkf/ytm-alice-remote/releases/tag/v1.0.0
 Нужны Python 3.10+ и pip.
 
 ```powershell
-cd windows
 pip install pywebview pyinstaller pillow
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-Готовый exe появится в `windows/dist/ytm-alice-remote.exe`. Скрипт сам
+Готовый exe появится в `dist/ytm-alice-remote.exe`. Скрипт сам
 сгенерирует `icon.ico` из `icon.png`, если его нет.
 
 Параметры: `.\build.ps1 -Name my-app`.
