@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import socket
 import threading
@@ -185,30 +185,26 @@ SETUP_HTML = r"""<!doctype html>
   const connectBtn = document.getElementById('connect');
   const findBtn = document.getElementById('find');
 
-  async function doConnect() {
+  function doConnect() {
     connectBtn.disabled = true; findBtn.disabled = true;
-    status.innerHTML = '<span class="spinner"></span>РџСЂРѕРІРµСЂСЏРµРј РїРѕРґРєР»СЋС‡РµРЅРёРµвЂ¦';
-    try {
-      const r = await window.pywebview.api.connect(addr.value);
-      if (r.ok) { status.textContent = 'РџРѕРґРєР»СЋС‡РµРЅРѕ: ytm-alice ' + (r.version || ''); }
-      else { status.textContent = r.message; }
-    } catch (e) { status.textContent = 'РћС€РёР±РєР°: ' + e; }
-    connectBtn.disabled = false; findBtn.disabled = false;
+    status.innerHTML = '<span class="spinner"></span>Проверяем подключение…';
+    window.pywebview.api.connect(addr.value);
   }
-  async function doFind() {
+  function onConnectResult(r) {
+    connectBtn.disabled = false; findBtn.disabled = false;
+    if (r.ok) { status.textContent = 'Подключено: ytm-alice ' + (r.version || ''); if (r.url) addr.value = r.url.replace(/^https?:\/\//,''); }
+    else { status.textContent = r.message || 'Ошибка'; }
+  }
+  function doFind() {
     connectBtn.disabled = true; findBtn.disabled = true;
-    status.innerHTML = '<span class="spinner"></span>РС‰РµРј РЎС‚Р°РЅС†РёСЋ РІ Р»РѕРєР°Р»СЊРЅРѕР№ СЃРµС‚РёвЂ¦';
-    try {
-      const r = await window.pywebview.api.find();
-      if (r.ok) { status.textContent = 'РќР°Р№РґРµРЅРѕ, РїРѕРґРєР»СЋС‡Р°РµРјСЃСЏвЂ¦'; addr.value = r.url.replace(/^https?:\/\//,''); }
-      else { status.textContent = r.message; }
-    } catch (e) { status.textContent = 'РћС€РёР±РєР°: ' + e; }
-    connectBtn.disabled = false; findBtn.disabled = false;
+    status.innerHTML = '<span class="spinner"></span>Ищем Станцию в локальной сети… (до 15 сек)';
+    window.pywebview.api.find();
   }
-  window.addEventListener('pywebviewready', async () => {
-    const saved = await window.pywebview.api.get_saved();
-    if (saved) addr.value = saved.replace(/^https?:\/\//,'');
-  });
+  function onFindResult(r) {
+    connectBtn.disabled = false; findBtn.disabled = false;
+    if (r.ok) { status.textContent = 'Найдено: ' + (r.found || 1) + '. Подключаемся…'; if (r.url) addr.value = r.url.replace(/^https?:\/\//,''); }
+    else { status.textContent = r.message || 'Не найдено'; }
+  }
   addr.addEventListener('keydown', (e) => { if (e.key === 'Enter') doConnect(); });
 </script>
 </body>
@@ -224,29 +220,48 @@ class Api:
         return load_config().get("server_url", "")
 
     def connect(self, address):
-        url = normalize(address)
-        if not url:
-            return {"ok": False, "message": "РќРµРІРµСЂРЅС‹Р№ Р°РґСЂРµСЃ. РџСЂРёРјРµСЂ: 192.168.1.50:24721"}
-        version = check(url)
-        if version is None:
-            return {"ok": False, "message": "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ. РџСЂРѕРІРµСЂСЊС‚Рµ Р°РґСЂРµСЃ Рё СЃРµС‚СЊ."}
-        save_config(url)
-        self.window.load_url(url)
-        return {"ok": True, "version": version, "url": url}
+        def worker():
+            url = normalize(address)
+            if not url:
+                self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": False, "message": "Неверный адрес. Пример: 192.168.1.50:24721"}, ensure_ascii=False) + ")")
+                return
+            version = check(url)
+            if version is None:
+                self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться. Проверьте адрес и сеть."}, ensure_ascii=False) + ")")
+                return
+            save_config(url)
+            try:
+                self.window.load_url(url)
+            except Exception as e:
+                print("load_url error:", e)
+            self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url}, ensure_ascii=False) + ")")
+
+        __import__("threading").Thread(target=worker, daemon=True).start()
+        return {"ok": True, "pending": True}
 
     def find(self):
-        urls = discover()
-        if not urls:
-            return {"ok": False, "message": "РЎС‚Р°РЅС†РёСЏ РЅРµ РЅР°Р№РґРµРЅР°. Р’РІРµРґРёС‚Рµ Р°РґСЂРµСЃ РІСЂСѓС‡РЅСѓСЋ."}
-        url = normalize(urls[0])
-        if not url:
-            return {"ok": False, "message": "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ."}
-        version = check(url)
-        if version is None:
-            return {"ok": False, "message": "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ."}
-        save_config(url)
-        self.window.load_url(url)
-        return {"ok": True, "version": version, "url": url, "found": len(urls)}
+        def worker():
+            urls = discover()
+            if not urls:
+                self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": False, "message": "Станция не найдена. Введите адрес вручную."}, ensure_ascii=False) + ")")
+                return
+            url = normalize(urls[0])
+            if not url:
+                self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться."}, ensure_ascii=False) + ")")
+                return
+            version = check(url)
+            if version is None:
+                self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться."}, ensure_ascii=False) + ")")
+                return
+            save_config(url)
+            try:
+                self.window.load_url(url)
+            except Exception as e:
+                print("load_url error:", e)
+            self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url, "found": len(urls)}, ensure_ascii=False) + ")")
+
+        __import__("threading").Thread(target=worker, daemon=True).start()
+        return {"ok": True, "pending": True}
 
     def change_address(self):
         self.window.load_html(SETUP_HTML)
