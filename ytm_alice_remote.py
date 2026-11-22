@@ -317,7 +317,53 @@ class Api:
         return True
 
 
+def patch_webview2():
+    """Harden the WebView2 control and log renderer crashes."""
+    try:
+        import webview.platforms.edgechromium as ec
+
+        orig_init = ec.EdgeChrome.__init__
+
+        def patched_init(self, form, window, cache_dir):
+            orig_init(self, form, window, cache_dir)
+            try:
+                props = self.webview.CreationProperties
+                args = props.AdditionalBrowserArguments or ""
+                if "--disable-gpu" not in args:
+                    props.AdditionalBrowserArguments = (args + " --disable-gpu").strip()
+                    self.webview.CreationProperties = props
+            except Exception as e:
+                print("webview2 args error:", e)
+
+        ec.EdgeChrome.__init__ = patched_init
+
+        orig_ready = ec.EdgeChrome.on_webview_ready
+
+        def patched_ready(self, sender, args):
+            orig_ready(self, sender, args)
+            try:
+                core = self.webview.CoreWebView2
+
+                def on_failed(s, e):
+                    try:
+                        write_crash_log(
+                            "WebView2 ProcessFailed: %s %s"
+                            % (getattr(e, "Reason", "?"), getattr(e, "Description", "?"))
+                        )
+                    except Exception:
+                        write_crash_log("WebView2 ProcessFailed")
+
+                core.ProcessFailed += on_failed
+            except Exception as e:
+                print("webview2 ProcessFailed hook error:", e)
+
+        ec.EdgeChrome.on_webview_ready = patched_ready
+    except Exception as e:
+        print("webview2 patch error:", e)
+
+
 def main():
+    patch_webview2()
     saved = load_config().get("server_url")
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
     if not os.path.isfile(icon_path):
