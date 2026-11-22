@@ -13,7 +13,7 @@ DEFAULT_PORT = 24721
 
 def load_config():
     try:
-        with open(CONFIG_PATH, encoding="utf-8") as f:
+        with open(CONFIG_PATH, encoding="utf-8-sig") as f:
             return json.load(f)
     except Exception:
         return {}
@@ -189,16 +189,16 @@ SETUP_HTML = r"""<!doctype html>
     <path d="M20 5C15.8 5 9.6 12.5 5.7 20.1C2.2 27 4.2 32.2 11.7 34.2C16.7 35.5 23.3 35.5 28.3 34.2C35.8 32.2 37.8 27 34.3 20.1C30.4 12.5 24.2 5 20 5Z" stroke="#ff574a" stroke-width="3.2" stroke-linejoin="round"/>
   </svg>
   <h1>ytm-alice</h1>
-  <div class="sub">РџСѓР»СЊС‚ РґР»СЏ РЇРЅРґРµРєСЃ РЎС‚Р°РЅС†РёРё</div>
+  <div class="sub">Пульт для Яндекс Станции</div>
   <div class="card">
-    <label>РђРґСЂРµСЃ РЎС‚Р°РЅС†РёРё</label>
+    <label>Адрес Станции</label>
     <input id="addr" type="text" placeholder="192.168.1.50:24721" autocomplete="off">
-    <div class="help">IP-Р°РґСЂРµСЃ РєРѕР»РѕРЅРєРё, РёРјСЏ alice.lan РёР»Рё РїРѕР»РЅС‹Р№ Р°РґСЂРµСЃ РїР°РЅРµР»Рё</div>
-    <button id="connect" onclick="doConnect()">РџРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ</button>
-    <button id="find" class="ghost" onclick="doFind()">РќР°Р№С‚Рё РЎС‚Р°РЅС†РёСЋ РІ СЃРµС‚Рё</button>
+    <div class="help">IP-адрес колонки, имя alice.lan или полный адрес панели</div>
+    <button id="connect" onclick="doConnect()">Подключиться</button>
+    <button id="find" class="ghost" onclick="doFind()">Найти Станцию в сети</button>
     <div class="status" id="status"></div>
   </div>
-  <div class="footer">РњСѓР·С‹РєР° РёРіСЂР°РµС‚ РЅР° РєРѕР»РѕРЅРєРµ. РџСЂРёР»РѕР¶РµРЅРёРµ РѕС‚РєСЂС‹РІР°РµС‚ РІРµР±-РїР°РЅРµР»СЊ ytm-alice: РїРѕРёСЃРє, РѕС‡РµСЂРµРґСЊ, Р»Р°Р№РєРё, РїР»РµР№Р»РёСЃС‚С‹ Рё РЅР°СЃС‚СЂРѕР№РєРё.</div>
+  <div class="footer">Музыка играет на колонке. Приложение открывает веб-панель ytm-alice: поиск, очередь, лайки, плейлисты и настройки.</div>
 </div>
 <script>
   const status = document.getElementById('status');
@@ -240,6 +240,23 @@ class Api:
     def get_saved(self):
         return load_config().get("server_url", "")
 
+    def _load_panel(self, url):
+        """Open the panel from the station origin.
+
+        Loading the HTML with load_html() gives the page a null/local origin.
+        ytm-alice only accepts POSTs whose Origin matches the station, and its
+        ES modules (/cookies.mjs, /icons.mjs) are blocked by CORS in that case.
+        The panel is served with 'Content-Type: text/html; charset=utf-8', so
+        a direct load also keeps Russian text correct.
+        """
+        try:
+            self.window.load_url(url)
+        except Exception as e:
+            print("load_url error:", e)
+            html = fetch_panel_html(url)
+            if html is not None:
+                self.window.load_html(html)
+
     def connect(self, address):
         def worker():
             url = normalize(address)
@@ -251,15 +268,7 @@ class Api:
                 self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться. Проверьте адрес и сеть."}, ensure_ascii=False) + ")")
                 return
             save_config(url)
-            html = fetch_panel_html(url)
-            if html is not None:
-                try:
-                    self.window.load_html(html)
-                except Exception as e:
-                    print("load_html error:", e)
-                    self.window.load_url(url)
-            else:
-                self.window.load_url(url)
+            self._load_panel(url)
             self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
@@ -280,15 +289,7 @@ class Api:
                 self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться."}, ensure_ascii=False) + ")")
                 return
             save_config(url)
-            html = fetch_panel_html(url)
-            if html is not None:
-                try:
-                    self.window.load_html(html)
-                except Exception as e:
-                    print("load_html error:", e)
-                    self.window.load_url(url)
-            else:
-                self.window.load_url(url)
+            self._load_panel(url)
             self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url, "found": len(urls)}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
