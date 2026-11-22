@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 import socket
 import threading
@@ -69,7 +69,7 @@ def check(base):
             import re
             m = re.search(r'"version"\s*:\s*"([^"]*)"', body)
             v = m.group(1) if m else ""
-            return v if v else "версия неизвестна"
+            return v if v else "РІРµСЂСЃРёСЏ РЅРµРёР·РІРµСЃС‚РЅР°"
     except Exception:
         return None
 
@@ -168,16 +168,16 @@ SETUP_HTML = r"""<!doctype html>
     <path d="M20 5C15.8 5 9.6 12.5 5.7 20.1C2.2 27 4.2 32.2 11.7 34.2C16.7 35.5 23.3 35.5 28.3 34.2C35.8 32.2 37.8 27 34.3 20.1C30.4 12.5 24.2 5 20 5Z" stroke="#ff574a" stroke-width="3.2" stroke-linejoin="round"/>
   </svg>
   <h1>ytm-alice</h1>
-  <div class="sub">Пульт для Яндекс Станции</div>
+  <div class="sub">РџСѓР»СЊС‚ РґР»СЏ РЇРЅРґРµРєСЃ РЎС‚Р°РЅС†РёРё</div>
   <div class="card">
-    <label>Адрес Станции</label>
+    <label>РђРґСЂРµСЃ РЎС‚Р°РЅС†РёРё</label>
     <input id="addr" type="text" placeholder="192.168.1.50:24721" autocomplete="off">
-    <div class="help">IP-адрес колонки, имя alice.lan или полный адрес панели</div>
-    <button id="connect" onclick="doConnect()">Подключиться</button>
-    <button id="find" class="ghost" onclick="doFind()">Найти Станцию в сети</button>
+    <div class="help">IP-Р°РґСЂРµСЃ РєРѕР»РѕРЅРєРё, РёРјСЏ alice.lan РёР»Рё РїРѕР»РЅС‹Р№ Р°РґСЂРµСЃ РїР°РЅРµР»Рё</div>
+    <button id="connect" onclick="doConnect()">РџРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ</button>
+    <button id="find" class="ghost" onclick="doFind()">РќР°Р№С‚Рё РЎС‚Р°РЅС†РёСЋ РІ СЃРµС‚Рё</button>
     <div class="status" id="status"></div>
   </div>
-  <div class="footer">Музыка играет на колонке. Приложение открывает веб-панель ytm-alice: поиск, очередь, лайки, плейлисты и настройки.</div>
+  <div class="footer">РњСѓР·С‹РєР° РёРіСЂР°РµС‚ РЅР° РєРѕР»РѕРЅРєРµ. РџСЂРёР»РѕР¶РµРЅРёРµ РѕС‚РєСЂС‹РІР°РµС‚ РІРµР±-РїР°РЅРµР»СЊ ytm-alice: РїРѕРёСЃРє, РѕС‡РµСЂРµРґСЊ, Р»Р°Р№РєРё, РїР»РµР№Р»РёСЃС‚С‹ Рё РЅР°СЃС‚СЂРѕР№РєРё.</div>
 </div>
 <script>
   const status = document.getElementById('status');
@@ -187,22 +187,22 @@ SETUP_HTML = r"""<!doctype html>
 
   async function doConnect() {
     connectBtn.disabled = true; findBtn.disabled = true;
-    status.innerHTML = '<span class="spinner"></span>Проверяем подключение…';
+    status.innerHTML = '<span class="spinner"></span>РџСЂРѕРІРµСЂСЏРµРј РїРѕРґРєР»СЋС‡РµРЅРёРµвЂ¦';
     try {
       const r = await window.pywebview.api.connect(addr.value);
-      if (r.ok) { status.textContent = 'Подключено: ytm-alice ' + (r.version || ''); }
+      if (r.ok) { status.textContent = 'РџРѕРґРєР»СЋС‡РµРЅРѕ: ytm-alice ' + (r.version || ''); }
       else { status.textContent = r.message; }
-    } catch (e) { status.textContent = 'Ошибка: ' + e; }
+    } catch (e) { status.textContent = 'РћС€РёР±РєР°: ' + e; }
     connectBtn.disabled = false; findBtn.disabled = false;
   }
   async function doFind() {
     connectBtn.disabled = true; findBtn.disabled = true;
-    status.innerHTML = '<span class="spinner"></span>Ищем Станцию в локальной сети…';
+    status.innerHTML = '<span class="spinner"></span>РС‰РµРј РЎС‚Р°РЅС†РёСЋ РІ Р»РѕРєР°Р»СЊРЅРѕР№ СЃРµС‚РёвЂ¦';
     try {
       const r = await window.pywebview.api.find();
-      if (r.ok) { status.textContent = 'Найдено, подключаемся…'; addr.value = r.url.replace(/^https?:\/\//,''); }
+      if (r.ok) { status.textContent = 'РќР°Р№РґРµРЅРѕ, РїРѕРґРєР»СЋС‡Р°РµРјСЃСЏвЂ¦'; addr.value = r.url.replace(/^https?:\/\//,''); }
       else { status.textContent = r.message; }
-    } catch (e) { status.textContent = 'Ошибка: ' + e; }
+    } catch (e) { status.textContent = 'РћС€РёР±РєР°: ' + e; }
     connectBtn.disabled = false; findBtn.disabled = false;
   }
   window.addEventListener('pywebviewready', async () => {
@@ -226,10 +226,10 @@ class Api:
     def connect(self, address):
         url = normalize(address)
         if not url:
-            return {"ok": False, "message": "Неверный адрес. Пример: 192.168.1.50:24721"}
+            return {"ok": False, "message": "РќРµРІРµСЂРЅС‹Р№ Р°РґСЂРµСЃ. РџСЂРёРјРµСЂ: 192.168.1.50:24721"}
         version = check(url)
         if version is None:
-            return {"ok": False, "message": "Не удалось подключиться. Проверьте адрес и сеть."}
+            return {"ok": False, "message": "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ. РџСЂРѕРІРµСЂСЊС‚Рµ Р°РґСЂРµСЃ Рё СЃРµС‚СЊ."}
         save_config(url)
         self.window.load_url(url)
         return {"ok": True, "version": version, "url": url}
@@ -237,13 +237,13 @@ class Api:
     def find(self):
         urls = discover()
         if not urls:
-            return {"ok": False, "message": "Станция не найдена. Введите адрес вручную."}
+            return {"ok": False, "message": "РЎС‚Р°РЅС†РёСЏ РЅРµ РЅР°Р№РґРµРЅР°. Р’РІРµРґРёС‚Рµ Р°РґСЂРµСЃ РІСЂСѓС‡РЅСѓСЋ."}
         url = normalize(urls[0])
         if not url:
-            return {"ok": False, "message": "Не удалось подключиться."}
+            return {"ok": False, "message": "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ."}
         version = check(url)
         if version is None:
-            return {"ok": False, "message": "Не удалось подключиться."}
+            return {"ok": False, "message": "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ."}
         save_config(url)
         self.window.load_url(url)
         return {"ok": True, "version": version, "url": url, "found": len(urls)}
@@ -255,30 +255,29 @@ class Api:
 
 def main():
     saved = load_config().get("server_url")
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
     if not os.path.isfile(icon_path):
         icon_path = None
+    api = Api(None)
     window = webview.create_window(
         APP_NAME,
+        url=saved if saved else None,
+        html=None if saved else SETUP_HTML,
         width=1100,
         height=760,
         min_size=(720, 520),
         text_select=True,
+        js_api=api,
     )
-    api = Api(window)
-    window.js_api = api
-    if saved:
-        window.load_url(saved)
-    else:
-        window.load_html(SETUP_HTML)
+    api.window = window
 
     menu = [
         webview.Menu("\u0424\u0430\u0439\u043b", [
-            webview.MenuItem("\u0421\u043c\u0435\u043d\u0438\u0442\u044c \u0430\u0434\u0440\u0435\u0441 \u0421\u0442\u0430\u043d\u0446\u0438\u0438", api.change_address),
-            webview.MenuItem("\u0412\u044b\u0445\u043e\u0434", lambda: window.destroy()),
+            webview.menu.MenuAction("\u0421\u043c\u0435\u043d\u0438\u0442\u044c \u0430\u0434\u0440\u0435\u0441 \u0421\u0442\u0430\u043d\u0446\u0438\u0438", api.change_address),
+            webview.menu.MenuAction("\u0412\u044b\u0445\u043e\u0434", lambda: window.destroy()),
         ]),
         webview.Menu("\u0421\u043f\u0440\u0430\u0432\u043a\u0430", [
-            webview.MenuItem("\u041e \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438", lambda: window.evaluate_js(
+            webview.menu.MenuAction("\u041e \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438", lambda: window.evaluate_js(
                 "alert('ytm-alice remote 1.0.0\\n\\n\u041f\u0443\u043b\u044c\u0442 \u0434\u043b\u044f ytm-alice.\\n\u041c\u0443\u0437\u044b\u043a\u0430 \u0438\u0433\u0440\u0430\u0435\u0442 \u043d\u0430 \u043a\u043e\u043b\u043e\u043d\u043a\u0435.');"
             )),
         ]),
@@ -288,3 +287,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
