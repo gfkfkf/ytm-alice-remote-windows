@@ -227,6 +227,16 @@ SETUP_HTML = r"""<!doctype html>
     else { status.textContent = r.message || 'Не найдено'; }
   }
   addr.addEventListener('keydown', (e) => { if (e.key === 'Enter') doConnect(); });
+
+  // WebView2 may only be navigated from the UI thread. The Python side checks
+  // the station in a background thread and defers navigation to this poll.
+  setInterval(() => {
+    try {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.poll) {
+        window.pywebview.api.poll();
+      }
+    } catch (e) {}
+  }, 250);
 </script>
 </body>
 </html>
@@ -236,26 +246,32 @@ SETUP_HTML = r"""<!doctype html>
 class Api:
     def __init__(self, window):
         self.window = window
+        self._pending_nav = None
 
     def get_saved(self):
         return load_config().get("server_url", "")
 
-    def _load_panel(self, url):
-        """Open the panel from the station origin.
+    def _schedule_navigation(self, url):
+        """Defer navigation to the UI thread (WebView2 COM is thread-bound)."""
+        self._pending_nav = url
 
-        Loading the HTML with load_html() gives the page a null/local origin.
-        ytm-alice only accepts POSTs whose Origin matches the station, and its
-        ES modules (/cookies.mjs, /icons.mjs) are blocked by CORS in that case.
-        The panel is served with 'Content-Type: text/html; charset=utf-8', so
-        a direct load also keeps Russian text correct.
+    def poll(self):
+        """Called by the setup page on the UI thread.
+
+        The network check runs in a background thread. Calling window.load_url()
+        from that thread makes WebView2 hang, so the actual navigation happens
+        here instead. Loading from the station URL also keeps the correct Origin
+        for panel commands; the panel is served with charset=utf-8.
         """
+        url = self._pending_nav
+        if not url:
+            return {"navigated": False}
+        self._pending_nav = None
         try:
             self.window.load_url(url)
         except Exception as e:
             print("load_url error:", e)
-            html = fetch_panel_html(url)
-            if html is not None:
-                self.window.load_html(html)
+        return {"navigated": True}
 
     def connect(self, address):
         def worker():
@@ -268,7 +284,7 @@ class Api:
                 self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться. Проверьте адрес и сеть."}, ensure_ascii=False) + ")")
                 return
             save_config(url)
-            self._load_panel(url)
+            self._schedule_navigation(url)
             self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
@@ -289,7 +305,7 @@ class Api:
                 self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться."}, ensure_ascii=False) + ")")
                 return
             save_config(url)
-            self._load_panel(url)
+            self._schedule_navigation(url)
             self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url, "found": len(urls)}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
@@ -332,6 +348,30 @@ def main():
     webview.start(debug=False, menu=menu)
 
 
+def write_crash_log(text):
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(os.path.join(CONFIG_DIR, "crash.log"), "w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        import traceback
+        write_crash_log(traceback.format_exc())
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                "Ошибка запуска. Подробности в %APPDATA%\\ytm-alice-remote\\crash.log",
+                "ytm-alice remote",
+                0x10,
+            )
+        except Exception:
+            pass
+        raise
 
