@@ -74,6 +74,27 @@ def check(base):
         return None
 
 
+def fetch_panel_html(url):
+    """Fetch the panel HTML and force UTF-8 decoding; inject a <base> tag so
+    relative URLs and fetch() resolve against the station."""
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "text/html"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            raw = r.read()
+        html = raw.decode("utf-8")
+        base_tag = '<base href="' + url.rstrip("/") + '/">'
+        if "<head>" in html:
+            html = html.replace("<head>", "<head>" + base_tag, 1)
+        elif "<head " in html:
+            import re
+            html = re.sub(r"(<head[^>]*>)", r"\1" + base_tag, html, count=1)
+        else:
+            html = base_tag + html
+        return html
+    except Exception as e:
+        print("fetch_panel_html error:", e)
+        return None
+
 def discover():
     targets = ["http://alice.lan:24721", "http://alice.local:24721"]
     seen = set(targets)
@@ -230,10 +251,15 @@ class Api:
                 self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться. Проверьте адрес и сеть."}, ensure_ascii=False) + ")")
                 return
             save_config(url)
-            try:
+            html = fetch_panel_html(url)
+            if html is not None:
+                try:
+                    self.window.load_html(html)
+                except Exception as e:
+                    print("load_html error:", e)
+                    self.window.load_url(url)
+            else:
                 self.window.load_url(url)
-            except Exception as e:
-                print("load_url error:", e)
             self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
@@ -254,10 +280,15 @@ class Api:
                 self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться."}, ensure_ascii=False) + ")")
                 return
             save_config(url)
-            try:
+            html = fetch_panel_html(url)
+            if html is not None:
+                try:
+                    self.window.load_html(html)
+                except Exception as e:
+                    print("load_html error:", e)
+                    self.window.load_url(url)
+            else:
                 self.window.load_url(url)
-            except Exception as e:
-                print("load_url error:", e)
             self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url, "found": len(urls)}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
