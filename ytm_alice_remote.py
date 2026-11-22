@@ -287,17 +287,17 @@ def main():
     api.window = window
 
     menu = [
-        webview.Menu("\u0424\u0430\u0439\u043b", [
-            webview.menu.MenuAction("\u0421\u043c\u0435\u043d\u0438\u0442\u044c \u0430\u0434\u0440\u0435\u0441 \u0421\u0442\u0430\u043d\u0446\u0438\u0438", api.change_address),
-            webview.menu.MenuAction("\u0412\u044b\u0445\u043e\u0434", lambda: window.destroy()),
+        webview.Menu("File", [
+            webview.menu.MenuAction("Change station address", api.change_address),
+            webview.menu.MenuAction("Exit", lambda: window.destroy()),
         ]),
-        webview.Menu("\u0421\u043f\u0440\u0430\u0432\u043a\u0430", [
-            webview.menu.MenuAction("\u041e \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438", lambda: window.evaluate_js(
+        webview.Menu("Help", [
+            webview.menu.MenuAction("About", lambda: window.evaluate_js(
                 "alert('ytm-alice remote 1.0.0\\n\\n\u041f\u0443\u043b\u044c\u0442 \u0434\u043b\u044f ytm-alice.\\n\u041c\u0443\u0437\u044b\u043a\u0430 \u0438\u0433\u0440\u0430\u0435\u0442 \u043d\u0430 \u043a\u043e\u043b\u043e\u043d\u043a\u0435.');"
             )),
         ]),
     ]
-    webview.start(debug=False, menu=menu, icon=icon_path)
+    webview.start(debug=False, menu=menu)
 
 
 if __name__ == "__main__":
