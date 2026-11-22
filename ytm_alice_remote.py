@@ -284,8 +284,10 @@ class Api:
                 self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": False, "message": "Не удалось подключиться. Проверьте адрес и сеть."}, ensure_ascii=False) + ")")
                 return
             save_config(url)
+            # Do not call evaluate_js() here: poll() navigates away on the UI
+            # thread, and evaluating a script in the dying page can deadlock
+            # WebView2. The setup page is about to be replaced anyway.
             self._schedule_navigation(url)
-            self.window.evaluate_js("onConnectResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
         return {"ok": True, "pending": True}
@@ -306,7 +308,6 @@ class Api:
                 return
             save_config(url)
             self._schedule_navigation(url)
-            self.window.evaluate_js("onFindResult(" + __import__("json").dumps({"ok": True, "version": version, "url": url, "found": len(urls)}, ensure_ascii=False) + ")")
 
         __import__("threading").Thread(target=worker, daemon=True).start()
         return {"ok": True, "pending": True}
